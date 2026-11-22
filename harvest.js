@@ -18,9 +18,9 @@
 
   /* widened - v1 required literal titles like "ai engineer" and binned
      38 of 67 posts that plainly said "large-scale AI" or "automation" */
-  var CORE = /(ai\b|a\.i\.|artificial intelligence|machine learning|ml\b|mle\b|data scien|generative ai|gen ?ai|genai|llm|nlp|natural language|computer vision|deep learning|mlops|neural|transformer|langchain|pytorch|tensorflow|hugging ?face|embedding|vector db|vector database|rag\b|prompt engineer|fine-?tun)/i;
-  var ADJ  = /(data engineer|data analyst|analytics|python developer|software engineer|business analyst|etl|pyspark|databricks|snowflake|full ?stack|backend|power bi|tableau)/i;
-  var HARD = /(video editor|graphic design|social media manager|copywriter|shopify|wordpress|ui\/ux|content writer|sales executive|business development executive|hr executive|seo specialist|telecaller|bpo)/i;
+  var CORE = /(software (?:engineer|developer)|\bsde\b|back[- ]?end|front[- ]?end|full[- ]?stack|react(?:\.?js)?\b|react native|flutter|\bdart\b|node(?:\.?js)?\b|typescript|javascript|next\.?js|\bmern\b|spring boot|\bjava developer\b|microservice|rest api|web developer|mobile (?:app )?developer|android developer|ios developer)/i;
+  var ADJ  = /(python developer|golang|\bgo developer\b|devops|\bsre\b|site reliability|cloud engineer|platform engineer|\bqa\b|sdet|test engineer|automation engineer|angular|vue|kotlin|swift|\.net developer|php developer|data engineer|\bai\b|machine learning|\bllm\b)/i;
+  var HARD = /(video editor|graphic design|social media manager|copywriter|ui\/ux designer|content writer|sales executive|business development executive|hr executive|seo specialist|telecaller|bpo|data analyst|business analyst|power bi|tableau)/i;
 
   var SEEKER  = /(looking for (?:a |an |new )?(?:job|role|opportunit)|open to work|actively seeking|seeking (?:a |an |new )?(?:job|role|opportunit)|if you know of|kindly refer|please refer|my resume is attached|i am looking|referral or share|would be grateful|open for opportunit|#opentowork)/i;
   var USROLE  = /(\bUSC\b|\bGC[- ]?EAD\b|\bH1B\b|\bH-1B\b|\bH4[- ]?EAD\b|\bOPT[- ]?EAD\b|green card|us citizen|authorized to work in the us|w2 only|\bc2c\b|corp to corp|\bonsite\b.*\b(?:CT|NJ|TX|NY|CA|GA|IL)\b)/i;

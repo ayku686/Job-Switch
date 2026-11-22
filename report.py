@@ -76,7 +76,7 @@ def card(r, i):
 def main():
     if not LEADS.exists():
         raise SystemExit("leads.csv not found — run scrape.py first")
-    with open(LEADS) as f:
+    with open(LEADS, encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
 
     act = [r for r in rows if channels(r)]

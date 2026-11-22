@@ -5,18 +5,18 @@ Turn leads.csv into per-account send lists.
 Three jobs, in order:
   1. FILTER   drop job-seekers, cert-mills, US-only roles, non-tech, DROP tier
   2. DEDUPE   drop anyone already in sent_log.csv  (nobody gets mailed twice)
-  3. VALIDATE MX/A lookup per domain via `dig`, so dead domains never bounce
+  3. VALIDATE MX/A lookup per domain (stdlib DNS), so dead domains never bounce
   4. SPLIT    round-robin into send_a0.csv / send_a1.csv / ... one per account
 
 Why one file per account: if every sender process reads the same queue and
 takes a slice, a difference in start time or list length makes the slices
 overlap and people receive 2-3 copies. Pre-splitting makes that impossible.
 
-    python3 build_send_list.py                # 3 accounts (default)
-    python3 build_send_list.py --accounts 1
-    python3 build_send_list.py --keep-adjacent-only
+    python build_send_list.py                 # 3 accounts (default)
+    python build_send_list.py --accounts 1
+    python build_send_list.py --core-only
 """
-import argparse, collections, csv, subprocess
+import argparse, collections, csv, os, socket, struct
 from pathlib import Path
 
 HERE = Path(__file__).parent
@@ -25,12 +25,45 @@ SENT = HERE / "sent_log.csv"
 
 FLAGS = ("is_jobseeker", "is_certmill", "is_us_role", "is_nontech")
 
+# never email your own company, under any domain variant (bottomline.com, .co.uk, ...)
+OWN_COMPANY = ("bottomline",)
+
+
+def own_company(addr):
+    return any(b in addr.split("@")[-1].lower() for b in OWN_COMPANY)
+
 
 def already_sent():
     if not SENT.exists():
         return set()
-    with open(SENT) as f:
+    with open(SENT, encoding="utf-8") as f:
         return {r["email"].strip().lower() for r in csv.DictReader(f) if r.get("email")}
+
+
+def _dns_query(domain, qtype, server, timeout=3):
+    """Raw DNS over UDP (cross-platform; dig doesn't exist on Windows and
+    nslookup output is localized). Returns answer count, or -1 on no reply."""
+    qid = struct.unpack(">H", os.urandom(2))[0]
+    q = struct.pack(">HHHHHH", qid, 0x0100, 1, 0, 0, 0)
+    for label in domain.rstrip(".").split("."):
+        enc = label.encode("idna") if not label.isascii() else label.encode()
+        if not 0 < len(enc) < 64:
+            return 0
+        q += bytes([len(enc)]) + enc
+    q += b"\x00" + struct.pack(">HH", qtype, 1)       # qtype, class IN
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.settimeout(timeout)
+            s.sendto(q, (server, 53))
+            while True:
+                resp = s.recv(2048)
+                if len(resp) >= 12 and resp[:2] == q[:2]:
+                    break
+        rcode = resp[3] & 0x0F
+        ancount = struct.unpack(">H", resp[6:8])[0]
+        return ancount if rcode == 0 else 0
+    except (OSError, UnicodeError):
+        return -1
 
 
 def domain_live(d, cache={}):
@@ -39,14 +72,22 @@ def domain_live(d, cache={}):
     if d in cache:
         return cache[d]
     live = False
-    for rr in ("MX", "A"):
-        try:
-            out = subprocess.run(["dig", "+short", "+time=3", "+tries=1", rr, d],
-                                 capture_output=True, text=True, timeout=12).stdout.strip()
-            if out:
+    for qtype in (15, 1):                              # MX, then A
+        for server in ("8.8.8.8", "1.1.1.1"):
+            n = _dns_query(d, qtype, server)
+            if n > 0:
                 live = True
                 break
-        except Exception:
+            if n == 0:                                 # authoritative empty answer
+                break
+        if live:
+            break
+    if not live:
+        # last resort through the system resolver (e.g. UDP/53 blocked)
+        try:
+            socket.getaddrinfo(d, 25, proto=socket.IPPROTO_TCP)
+            live = True
+        except OSError:
             pass
     cache[d] = live
     return live
@@ -62,7 +103,7 @@ def main():
     if not LEADS.exists():
         raise SystemExit("leads.csv not found — run scrape.py first")
 
-    with open(LEADS) as f:
+    with open(LEADS, encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
     sent = already_sent()
 
@@ -72,6 +113,9 @@ def main():
         e = (r.get("email") or "").strip().lower()
         if not e:
             stats["no_email"] += 1
+            continue
+        if own_company(e):
+            stats["own_company"] += 1
             continue
         if any(r.get(k) == "1" for k in FLAGS):
             stats["flagged"] += 1
@@ -93,7 +137,7 @@ def main():
     print(f"candidates           {len(cand)}")
 
     doms = sorted({e.split("@")[1] for e in cand})
-    print(f"\nverifying {len(doms)} domains via dig ...")
+    print(f"\nverifying {len(doms)} domains via DNS ...")
     dead = {d for d in doms if not domain_live(d)}
     for d in sorted(dead):
         print(f"  DEAD (excluded): {d}")

@@ -1,8 +1,12 @@
 # credentials — never commit
 config.json
+.env
 
-# your own documents
+# your own documents and local run state
 *.pdf
+email_template.txt
+last_run.txt
+scrape_cursor.txt
 
 # harvested data: third-party personal contact details. Do not share or commit.
 leads.csv

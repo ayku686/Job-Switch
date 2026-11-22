@@ -18,7 +18,7 @@ SAFETY
   * Randomised delay between sends, longer pause between batches
 """
 
-import argparse, csv, json, os, random, smtplib, ssl, sys, time
+import argparse, csv, os, random, smtplib, ssl, sys, time
 from datetime import date, datetime
 from email.message import EmailMessage
 from pathlib import Path
@@ -26,18 +26,35 @@ from pathlib import Path
 HERE = Path(__file__).parent
 LIST_FILE     = HERE / "send_list.csv"
 TEMPLATE_FILE = HERE / "email_template.txt"
-# Resume: "resume_file" in config.json, else the only PDF sitting next to this script
+ENV_FILE = HERE / ".env"
+
+
+def load_env_file():
+    if not ENV_FILE.exists():
+        return
+    for raw_line in ENV_FILE.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key, value = key.strip(), value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        if key:
+            os.environ.setdefault(key, value)
+
+
+load_env_file()
+
+
+# Resume: RESUME_FILE in .env, else the only PDF sitting next to this script
 def _find_resume():
-    import json as _j
-    cfg = HERE / "config.json"
-    if cfg.exists():
-        name = _j.loads(cfg.read_text()).get("resume_file")
-        if name and (HERE / name).exists():
-            return HERE / name
+    name = os.environ.get("RESUME_FILE", "resume.pdf")
+    if name and (HERE / name).exists():
+        return HERE / name
     pdfs = sorted(HERE.glob("*.pdf"))
     return pdfs[0] if pdfs else HERE / "resume.pdf"
 RESUME_FILE   = _find_resume()
-CONFIG_FILE   = HERE / "config.json"
 SENT_LOG      = HERE / "sent_log.csv"
 FAIL_LOG      = HERE / "failed_log.csv"
 
@@ -51,20 +68,27 @@ BATCH_PAUSE_MAX = 600           # (10 min)  -> 6 pauses ≈ 45 min
 # SMTP errors that mean "stop using this account today"
 QUOTA_MARKERS = ("quota", "rate limit", "5.4.5", "550-5.4.5", "too many", "exceeded")
 
+# hard stop: never email your own company, even via --test or a hand-edited list
+OWN_COMPANY = ("bottomline",)
+
+
+def own_company(addr):
+    return any(b in addr.split("@")[-1].lower() for b in OWN_COMPANY)
+
 
 def preflight():
     """Fail with instructions, not a traceback — this is step one for a new user."""
     missing = []
     if not TEMPLATE_FILE.exists():
         missing.append(f"  {TEMPLATE_FILE.name}   ->  cp email_template.example.txt {TEMPLATE_FILE.name}")
-    if not CONFIG_FILE.exists():
-        missing.append(f"  {CONFIG_FILE.name}          ->  cp config.example.json {CONFIG_FILE.name}")
+    if not ENV_FILE.exists():
+        missing.append(f"  {ENV_FILE.name}               ->  copy .env.example to .env and fill in your own values")
     if not RESUME_FILE.exists():
         missing.append("  your resume PDF     ->  put it in this folder (name it resume.pdf,"
-                       " or set \"resume_file\" in config.json)")
+                       " or set RESUME_FILE in .env)")
     if missing:
         sys.exit("\nSetup incomplete — missing:\n\n" + "\n".join(missing)
-                 + "\n\nThen edit each one with your details. See README.md step 5.\n")
+                 + "\n\nThen edit each one with your details. See README.md.\n")
 
 
 def load_template():
@@ -76,28 +100,53 @@ def load_template():
 
 
 def load_config():
-    if not CONFIG_FILE.exists():
-        sys.exit(
-            f"\nERROR: {CONFIG_FILE.name} not found.\n"
-            "Copy config.example.json to config.json and fill in your Gmail\n"
-            "addresses and App Passwords (see README.md step 4-5).\n"
-        )
-    cfg = json.loads(CONFIG_FILE.read_text())
-    if not cfg.get("sender_name") or "YOUR" in cfg["sender_name"].upper():
-        sys.exit('ERROR: set "sender_name" in config.json to your real full name')
-    if not cfg.get("accounts"):
-        sys.exit('ERROR: config.json has no "accounts"')
-    for a in cfg["accounts"]:
-        if "x" * 4 in a.get("app_password", "") or "PASTE" in a.get("app_password", ""):
-            sys.exit(f"ERROR: config.json still has a placeholder password for {a['email']}")
-    return cfg
+    sender_name = os.environ.get("SENDER_NAME", "").strip()
+    if not sender_name or "YOUR" in sender_name.upper():
+        sys.exit("ERROR: set your own SENDER_NAME in .env")
+
+    accounts = []
+    for number in range(1, 4):
+        email = os.environ.get(f"GMAIL_ACCOUNT_{number}_EMAIL", "").strip()
+        password = os.environ.get(f"GMAIL_ACCOUNT_{number}_APP_PASSWORD", "").strip()
+        cap = os.environ.get(f"GMAIL_ACCOUNT_{number}_DAILY_CAP", "370").strip()
+        if not email and not password:
+            continue
+        if not email or not password:
+            sys.exit(f"ERROR: set both email and app password for Gmail account {number} in .env")
+        if "xxxx" in password.lower() or "paste" in password.lower():
+            sys.exit(f"ERROR: replace the placeholder App Password for Gmail account {number} in .env")
+        try:
+            daily_cap = int(cap)
+        except ValueError:
+            sys.exit(f"ERROR: GMAIL_ACCOUNT_{number}_DAILY_CAP must be a whole number")
+        accounts.append({"email": email, "app_password": password, "daily_cap": daily_cap})
+
+    if not accounts:
+        sys.exit("ERROR: configure at least one Gmail account in .env")
+
+    seeds = [address.strip() for address in os.environ.get("SEED_ADDRESSES", "").split(",")
+             if address.strip()]
+    positions = [position.strip() for position in
+                 os.environ.get("SEED_POSITIONS", "1,20,40").split(",") if position.strip()]
+    try:
+        seed_positions = [int(position) for position in positions]
+    except ValueError:
+        sys.exit("ERROR: SEED_POSITIONS must be comma-separated whole numbers")
+
+    return {
+        "sender_name": sender_name,
+        "resume_file": os.environ.get("RESUME_FILE", "resume.pdf").strip(),
+        "seed_addresses": seeds,
+        "seed_positions": seed_positions,
+        "accounts": accounts,
+    }
 
 
 def already_sent():
     if not SENT_LOG.exists():
         return set(), {}
     done, per_day = set(), {}
-    with open(SENT_LOG) as f:
+    with open(SENT_LOG, encoding="utf-8") as f:
         for r in csv.DictReader(f):
             done.add(r["email"].lower())
             key = (r["from_account"], r["sent_at"][:10])
@@ -107,7 +156,7 @@ def already_sent():
 
 def log_row(path, header, row):
     new = not path.exists()
-    with open(path, "a", newline="") as f:
+    with open(path, "a", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         if new:
             w.writerow(header)
@@ -164,6 +213,8 @@ def main():
 
     # ---------- single test send ----------
     if args.test:
+        if own_company(args.test):
+            sys.exit(f"REFUSED: {args.test} is at your own company ({OWN_COMPANY})")
         # --account-index picks the sender; omit it to test EVERY account
         idxs = ([args.account_index] if args.account_index is not None
                 else range(len(cfg["accounts"])))
@@ -188,7 +239,7 @@ def main():
     if not list_path.exists():
         sys.exit(f"ERROR: list file not found: {list_path}")
     print(f"list file: {list_path.name}")
-    with open(list_path) as f:
+    with open(list_path, encoding="utf-8") as f:
         all_targets = [r["email"].strip().lower() for r in csv.DictReader(f) if r["email"].strip()]
     done, per_day = already_sent()
     seeds = [s.lower() for s in cfg.get("seed_addresses", [])]
@@ -206,7 +257,10 @@ def main():
         mine = [e for n, e in enumerate(all_targets) if n % K == args.account_index]
         print(f"PARTITION (fallback): account {args.account_index} of {K} -> "
               f"{len(mine)} of {len(all_targets)}")
-    queue = [e for e in mine if e not in done]
+    queue = [e for e in mine if e not in done and not own_company(e)]
+    skipped_own = sum(1 for e in mine if own_company(e))
+    if skipped_own:
+        print(f"BLOCKED {skipped_own} own-company address(es) ({', '.join(OWN_COMPANY)})")
 
     today = date.today().isoformat()
     print(f"list={len(all_targets)}  already sent={len(done)}  my remaining={len(queue)}")

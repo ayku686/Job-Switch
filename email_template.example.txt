@@ -1,27 +1,21 @@
-Subject: AI Engineer / Data Scientist — Exploring Roles
+Subject: YOUR ROLE (KEY SKILLS) — Exploring YOUR TARGET ROLES
 
 Hi,
 
-I hope you're doing well. I'm YOUR NAME, having N+ years of experience in
-YOUR DOMAIN, currently a YOUR TITLE at YOUR COMPANY, where I ONE LINE ON WHAT
-YOU ACTUALLY BUILD.
+I hope you're doing well. I'm YOUR NAME, a YOUR TITLE with X years of
+experience in YOUR FIELD, currently YOUR ROLE at YOUR COMPANY.
 
-I'm exploring full-time TARGET ROLE roles. I'd really appreciate any referrals
-or insights — happy to share more or connect briefly.
+I'm exploring full-time YOUR TARGET ROLES. I'd really appreciate any
+referrals or insights — happy to share more or connect briefly.
 
-Below is a quick summary of my experience:
+A quick summary of my experience:
 
-At COMPANY 1:
-Two or three concrete sentences. Name the systems you shipped and the stack.
-Concrete beats adjectives — "multi-agent LangGraph fact-checking system with
-automated evidence retrieval" lands, "passionate about AI" does not.
-
-At COMPANY 2:
-Same again. Include a number if you have an honest one.
+At YOUR COMPANY:
+One or two lines on your most relevant work, with a concrete result.
 
 Projects:
-- PROJECT ONE — stack, stack, stack
-- PROJECT TWO — stack, stack, stack
+- PROJECT ONE — one-line description (key tech)
+- PROJECT TWO — one-line description (key tech)
 
 Resume:
 YOUR PUBLIC RESUME LINK
@@ -29,5 +23,6 @@ YOUR PUBLIC RESUME LINK
 Best regards,
 YOUR NAME
 YOUR TITLE, YOUR COMPANY
-your.email@gmail.com
-+91-XXXXXXXXXX
+your.email@example.com
+YOUR PHONE
+linkedin.com/in/YOUR-PROFILE | github.com/YOUR-USERNAME

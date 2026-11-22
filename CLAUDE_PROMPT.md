@@ -22,7 +22,7 @@ Nothing. **Don't** configure Chrome, generate Gmail App Passwords, or edit any
 file before starting.
 
 Claude walks you through all of it — the Chrome AppleScript permission, the
-relaunch flags, the zoom setting, the Gmail App Passwords, `config.json`, your
+relaunch flags, the zoom setting, the Gmail App Passwords, `.env`, your
 email template — in the right order, and verifies each one actually worked
 before moving on. Steps 1–3 of the prompt below are exactly that, and README.md steps 1–6
 have the click-by-click detail if you want to read ahead.
@@ -82,9 +82,10 @@ Work through this in order and stop at each checkpoint so I can confirm:
    for it — check yourself and tell me what you found.
 2. Confirm the rest of the prerequisites: Python 3, `dig`, and that you can reach
    my logged-in LinkedIn tab via AppleScript and read the page.
-3. Walk me through creating Gmail App Passwords, then help me fill in
-   config.json. Ask me for the App Passwords only when we get there — do not
-   put them in any file other than config.json.
+3. Walk me through creating Gmail App Passwords, then tell me how to fill in
+  my local `.env` from `.env.example`. Never ask me to paste a password into
+  chat, and never read, display, log, or copy secret values yourself. I will
+  enter them directly into `.env` in my editor.
 4. Rewrite queries.txt for my field and country. Read the README's "Query
    design" section first — it explains the exact pattern the shipped 25 use
    (<role term> hiring [location], never quoted), and four measured lessons:
@@ -104,8 +105,8 @@ Work through this in order and stop at each checkpoint so I can confirm:
      6-9). Replace it for my country or it will match nothing.
    Show me each regex before and after, and explain what it now includes.
 6. Check my resume PDF is actually in this folder and readable now - not at
-   send time, when it's too late. Confirm the filename matches what send.py
-   will look for (resume.pdf, or "resume_file" in config.json).
+  send time, when it's too late. Confirm the filename matches what `send.py`
+  will look for (`resume.pdf`, or `RESUME_FILE` in `.env`).
 7. Write email_template.txt with me. READ MY RESUME PDF FIRST and draft from
    what's actually in it - real companies, real projects, real stack, real
    numbers. Don't write it from the one-line summary above; ask me follow-up
@@ -152,7 +153,8 @@ Rules I want you to follow:
   over — if the scrape returns 1 post, say so and diagnose it.
 - Don't add LinkedIn connect / DM / Easy Apply automation. Those are writes, and
   a ban earned there kills the scraper too.
-- Never put my App Passwords anywhere except config.json.
+- Never ask me to provide an App Password in chat. My local `.env` is the only
+  place the credentials belong; never read, display, log, or share its values.
 - Before the first send, tell me what a normal repeat day looks like (the
   README's "daily routine") so I can run it myself without you.
 ```
